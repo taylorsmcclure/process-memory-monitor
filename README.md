@@ -4,13 +4,14 @@
 
 1. [Question 1](#question-1)
     1. [Approach](#approach)
-    2. [Terraform](#terraform)
-    3. [Assumptions](#assumptions)
-    4. [Duration](#duration)
-    5. [Prerequisites](#prerequisites)
-    6. [How to test](#how-to-test)
-    7. [Cleanup](#cleanup)
-    8. [Nice to haves](#nice-to-haves)
+    2. [Usage Example](#usage-example)
+    3. [Terraform](#terraform)
+    4. [Assumptions](#assumptions)
+    5. [Duration](#duration)
+    6. [Prerequisites](#prerequisites)
+    7. [How to test](#how-to-test)
+    8. [Cleanup](#cleanup)
+    9. [Nice to haves](#nice-to-haves)
 2. [Question 2](#question-2)
 3. [Question 3](#question-3)
 4. [Question 4](#question-4)
@@ -36,6 +37,28 @@ The execution workflow looks like this:
 7. It is sent to `statsd` on UDP 8125 to the host you specify on step 1
 
 I arrived at this solution, because I did not want the complexity of deploying agents on hosts and have them periodically send metrics. This one script can aggregate all the process memory usage and send it to statsd/graphite easily.
+
+### Usage Example
+
+Hosts you want to monitor
+
+```text
+8.8.8.8
+1.1.1.1
+127.0.0.1
+```
+
+Graphite(statsd) host
+
+```text
+13.28.0.5
+```
+
+The command would be:
+
+```bash
+./mem_collector.py -u <ssh_username> -k <your_private_key>.pem -i 8.8.8.8,1.1.1.1,127.0.0.1 -g 13.28.0.5
+```
 
 ### Terraform
 
