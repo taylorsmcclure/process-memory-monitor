@@ -24,7 +24,7 @@ Firstly, thank you all for the opportunity to interview with Epic Games. I love 
 
 To solve this problem I used Python 3. Since I wanted a script that pulled metrics (rather than an agent that pushes), I went with executing `ps aux` over SSH to give me the memory stats. I used the [paramiko](http://www.paramiko.org/) package to easily connect/execute commands remotely via Python. I also used python [statsd](https://github.com/jsocol/pystatsd) module as a client wrapper for interacting with statsd.
 
-To satisfy the paraellel processing requirement of this assessment I went with Python 3's built-in `multiprocessing`. I used the `starmap()` function on 8 pooled workers to most of the script's functions.
+To satisfy the parallel processing requirement of this assessment I went with Python 3's built-in `multiprocessing`. I used the `starmap()` function on 8 pooled workers for most of the script's functions.
 
 The execution workflow looks like this:
 
@@ -107,7 +107,7 @@ This question took me approximately: 8 hours
 
 ### How to test
 
-**NOTE** You must have an AWS account and keypair with EC2 and VPC full access for this to work. You will also be spinning up AWS resources which will incure charges to your AWS account. You are responsible for any charges due to AWS resources running in your account. To make sure everything is cleaned up use `terraform destroy`.
+**NOTE** You must have an AWS account and keypair with EC2 and VPC full access for this to work. You will also be spinning up AWS resources which will incur charges to your AWS account. You are responsible for any charges due to AWS resources running in your account. To make sure everything is cleaned up use `terraform destroy`.
 
 1. Use `make init` to generate your python virtual environment as well as a private key to use for testing.
 
@@ -123,7 +123,7 @@ This question took me approximately: 8 hours
 
 ### Cleanup
 
-To clean up run `make clean_all`. Then `deactivate` to leave your python virtual env.
+To clean up, run `make clean_all`. Then `deactivate` to leave your python virtual env.
 
 ### Nice to haves
 
@@ -145,19 +145,18 @@ To clean up run `make clean_all`. Then `deactivate` to leave your python virtual
 
 If I had to run this multi-region and scaled to 10,000 hosts I would ask myself the following:
 
-1. How will Graphite keep up with the load?
+### How will Graphite keep up with the load?
 
 From what I have [read](https://allegro.tech/2015/09/scaling-graphite.html) putting multiple carbon-relays behind a load balancer would be a good call. I would also make sure the hardware of the graphite servers was adequate via performance testing. From what I gather, it appears disk IO (due to whisper) and RAM are the most important resources to tune. I would also look into sharding metrics between regions to reduce network latency and disk IO wait due to whisper being overloaded. Replacing as many Python components of Graphite [with Go](https://github.com/go-graphite) also appears to provide a large improvement.
 
-2. How can I run my script more efficiently?
+### How can I run my script more efficiently?
 
 I would need to run some benchmarks on my script to see how many hosts/metrics can be gathered in a reasonable amount of time. For the definition of a "reasonable time" let's say that is below one minute. This will give us the opportunity to get minute resolution metrics if needed. Then I would need to figure out a method of autodiscovering these hosts.
 
 If our infrastructure mainly in AWS I could use I would first see if AWS Lambda is a good fit for executing the script.
-
 This is where the pull methodology of my solution falls flat. It would be far more simple to distribute an agent to all these hosts that periodically pushes their metrics to their region's graphite load balancer.
 
-3. Am I making this easily scalable for more than 10,000 hosts?
+### Am I making this easily scalable for more than 10,000 hosts?
 
 I'll go back to my previous statement about the pull vs push collection. I think by making this script an agent it would scale to N hosts rather easily. I would make the script a python package that could be easily installed via `pip`.
 
@@ -177,15 +176,15 @@ This question took me approximately: 30 minutes
 
 ## Question 4
 
-The way I typically approach monitoring and alerting on oom killer events is first starting with what hosts are running out of memory. In the past I have setup Icinga2 to run its memory check scripts on remote hosts and report back the free memory %. If their memory usage is out side of normal bounds, I would be alerted and further investigation would take place.
+The way I typically approach monitoring and alerting on oom killer events is first starting with what hosts are running out of memory. In the past I have set up Icinga2 to run its memory check scripts on remote hosts and report back the free memory %. If their memory usage is outside of normal bounds, I would be alerted and further investigation would take place.
 
 In my experience the easiest way to drill down on OOM killer issues is via system logs. Assuming I was permitted to use DataDog, I would use DataDog logs with a [log filter](https://www.datadoghq.com/blog/diagnosing-oom-errors-with-datadog/#collect-oom-logs-from-your-system) for oom killer events. If I wasn't able to use DataDog, I would put together `rsyslog` and a central syslog server. There I would have a bash script that would alert on oom killer events see in the logs.
 
-To further investigate I would identify the process/pid(s) that are consuming the most amount of memory. That is where this project's script would shine. There could be a few causes to general high memory usage. There might be load balancing issues, so I would check connections via `lsof` if it is apart of a backend cluster. It's also possible there is too much disk pressure and the scheduler cannot flush data in memory to disk fast enough. However, after investigating all of that the host may need to be vertically scaled with additional RAM.
+To further investigate I would identify the process/pid(s) that are consuming the most amount of memory. That is where this project's script would shine. There could be a few causes to general high memory usage. There might be load balancing issues, so I would check connections via `lsof` if it is a part of a backend cluster. It's also possible there is too much disk pressure and the scheduler cannot flush data in memory to disk fast enough. However, after investigating all of that the host may need to be vertically scaled with additional RAM.
 
 Once I have identified the process I would SSH to one of the 1% hosts. SSH connections and pttys usually take priority with oom killer, so I will most likely get on. If not I would have to unfortunately "turn it off and on again". I would look at the application or system level logs to see if there are any clues as to why the process is consuming more memory each hour.
 
-Since this issue is occurring every hour regularly it might be a garbage collection issue (java). If that's the case an immediate bandaid would be a cron job that restarts the java service every X minutes. Obviously this is a 3am patch solution, so we need to investigate the application more to find a proper solution.
+Since this issue is occurring every hour regularly it might be a garbage collection issue (java). If that's the case an immediate band aid would be a cron job that restarts the java service every X minutes. Obviously this is a 3am patch solution, so we need to investigate the application more to find a proper solution.
 
 ### Duration
 
