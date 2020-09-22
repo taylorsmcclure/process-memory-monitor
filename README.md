@@ -2,15 +2,15 @@
 
 ## Table of Contents
 
-[Question 1](#question-1)
-    - [Approach](#approach)
-    - [Terraform](#terraform)
-    - [Assumptions](#assumptions)
-    - [Duration](#duration)
-    - [Prerequisites](#prerequisites)
-    - [How to test](#how-to-test)
-    - [Cleanup](#cleanup)
-    - [Nice to haves](#nice-to-haves)
+1. [Question 1](#question-1)
+    1. [Approach](#approach)
+    2. [Terraform](#terraform)
+    3. [Assumptions](#assumptions)
+    4. [Duration](#duration)
+    5. [Prerequisites](#prerequisites)
+    6. [How to test](#how-to-test)
+    7. [Cleanup](#cleanup)
+    8. [Nice to haves](#nice-to-haves)
 
 ## Question 1
 
