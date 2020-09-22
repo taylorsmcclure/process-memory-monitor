@@ -1,0 +1,10 @@
+version: "3"
+services:
+
+  epic-memory-test:
+    container_name: epic-memory-test
+    image: epic-memory-test:latest
+    build: .
+    ports:
+        - "127.0.0.1:22:22"
+    command: /usr/sbin/sshd -D

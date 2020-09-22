@@ -21,7 +21,8 @@ class bcolors:
     UNDERLINE = '\033[4m'
 
 class MemCollector ():
-    def __init__(self):
+    def __init__(self, output=False):
+        self.output = output
         pass
 
     def get_mem_metrics_single(self, hostnames, key_file, user, graphite_host):
@@ -37,16 +38,19 @@ class MemCollector ():
         
         # This usually won't fail since UDP, but nice to have
         with statsd.StatsClient(host=graphite_host, port=8125, prefix="memory_usage", maxudpsize=512).pipeline() as p:
+            if self.output:
+                with open('metrics.log', 'w') as f:
+                    f.seek(0)
+                    f.write(str(results))
+            
             for r in results:
                 r = r.split(' ')
                 command = r[0]
                 pid = r[1]
                 path = "{}.{}.{}".format(host, command, pid)
-                print("{}.rss".format(path), float(r[2]))
                 p.gauge("{}.rss".format(path), float(r[2]))
-                print("{}.vss".format(path), float(r[3]))
                 p.gauge("{}.vss".format(path), float(r[3]))
-            
+
         # This usually won't fail since UDP, but nice to have
         try:
             p.send()
@@ -55,43 +59,6 @@ class MemCollector ():
             raise(e)
 
         print("{}INFO: memory metrics sent to statsite server {}:8125{}".format(bcolors.OKGREEN, graphite_host, bcolors.ENDC))        
-        return True
-
-    # pickles metrics to send to graphite
-    # https://graphite.readthedocs.io/en/latest/feeding-carbon.html
-    def pickle_metrics(self, host, results):
-        graphite_root_path = "memory_usage.{}".format(host.replace('.', '-'))
-        pickled_metrics = []
-        unix_time = int(time.time())
-        # I could probably be more efficient here
-        for r in results:
-            r = r.split(' ')
-            path = "{}.{}".format(graphite_root_path, r[0])
-            mem_percent = ("{}.mem_percent".format(path), (unix_time, r[1]))
-            vss = ("{}.vss".format(path), (unix_time, r[2]))
-            rss = ("{}.rss".format(path), (unix_time, r[3]))
-            
-            pickled_metrics.extend([mem_percent, vss, rss])
-
-        payload = pickle.dumps(pickled_metrics, protocol=2)
-        header = struct.pack("!L", len(payload))
-        message = header + payload
-
-        # print(pickled_metrics)
-        return message
-
-    def send_pickled_metrics(self, graphite_host, message):
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.settimeout(5)
-        try:
-            s.connect((graphite_host, 2004))
-        except Exception as e:
-            print("{}FAIL: {}. Cannot push metrics to graphite on {}:2003{}".format(bcolors.FAIL, e, graphite_host, bcolors.ENDC))
-            raise(e)
-
-        s.sendall(message)
-        print("{}INFO: memory metrics sent to graphite server {}{}".format(bcolors.OKGREEN, graphite_host, bcolors.ENDC))
-        s.close()
         return True
 
     def get_mem_metrics(self, hostname, key_file, user, graphite_host):
@@ -124,10 +91,4 @@ class MemCollector ():
         client.close()
         # strip new line chars
         results = [line.rstrip() for line in results]
-        # print(results)
-        
-        # message = self.pickle_metrics(hostname, results)
-        # self.send_pickled_metrics(graphite_host, message)
-
         self.send_to_statsd(graphite_host, results, hostname)
-
