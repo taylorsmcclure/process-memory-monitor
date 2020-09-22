@@ -11,16 +11,35 @@
     6. [How to test](#how-to-test)
     7. [Cleanup](#cleanup)
     8. [Nice to haves](#nice-to-haves)
+2. [Question 2](#question-2)
+3. [Question 3](#question-3)
+4. [Question 4](#question-4)
 
 ## Question 1
 
 ### Approach
 
-...
+Firstly, thank you all for the opportunity to interview with Epic Games. I love challenges and this project exposed me to a tech stack I have never worked with. Regardless of the outcome of my interview, I am glad to have the experience that came from this project.
+
+To solve this problem I used Python 3. Since I wanted a script that pulled metrics (rather than an agent that pushes), I went with executing `ps aux` over SSH to give me the memory stats. I used the [paramiko](http://www.paramiko.org/) package to easily connect/execute commands remotely via Python. I also used python [statsd](https://github.com/jsocol/pystatsd) module as a client wrapper for interacting with statsd.
+
+To satisfy the paraellel processing requirement of this assessment I went with Python 3's built-in `multiprocessing`. I used the `starmap()` function on 8 pooled workers to most of the script's functions.
+
+The execution workflow looks like this:
+
+1. User input is collected via `argparse`
+2. A class `MemCollector()` is initialized with `get_mem_metrics_multi()` function
+3. `get_mem_metrics_multi()` creates a pool of 8 workers and simultaneously executes the following
+4. Using `paramiko` it connects to N number remote hosts via SSH to execute a `ps aux` command
+5. The results are then sent to `send_to_statsd()` which parses and structures them further
+6. It uses the `statsd.StatsClient().pipeline()` function to build a payload of multiple gauge metrics to cut down on network overhead
+7. It is sent to `statsd` on UDP 8125 to the host you specify on step 1
+
+I arrived at this solution, because I did not want the complexity of deploying agents on hosts and have them periodically send metrics. This one script can aggregate all the process memory usage and send it to statsd/graphite easily.
 
 ### Terraform
 
-For my integration tests and development I chose to go with terraform to bring up my infrastructure in AWS. While it is not required for you to do this, it tests parallel processing time over remote networks pretty well.
+For my integration tests and development workflow I chose to go with terraform to bring up my infrastructure in AWS. While it is not required for you to do this, it tests parallel processing time over remote networks pretty well.
 
 ### Assumptions
 
@@ -95,8 +114,56 @@ To clean up run `make clean_all`. Then `deactivate` to leave your python virtual
 
 * CI/CD system to test the python script. I have never used [Tox](https://tox.readthedocs.io/en/latest/), but that looks like a good way to go.
 
-* Use an SSH port rather than TCP 22. This would be easy to implement, but I did not for the sake of time.
+* Give the choice to use a SSH port rather than TCP 22. This would be easy to implement, but I did not for the sake of time.
 
 * Prebake an EC2 AMI with synthesize stack, so it doesn't take so long to bootstrap
 
 ## Question 2
+
+If I had to run this multi-region and scaled to 10,000 hosts I would ask myself the following:
+
+1. How will Graphite keep up with the load?
+
+From what I have [read](https://allegro.tech/2015/09/scaling-graphite.html) putting multiple carbon-relays behind a load balancer would be a good call. I would also make sure the hardware of the graphite servers was adequate via performance testing. From what I gather, it appears disk IO (due to whisper) and RAM are the most important resources to tune. I would also look into sharding metrics between regions to reduce network latency and disk IO wait due to whisper being overloaded. Replacing as many Python components of Graphite [with Go](https://github.com/go-graphite) also appears to provide a large improvement.
+
+2. How can I run my script more efficiently?
+
+I would need to run some benchmarks on my script to see how many hosts/metrics can be gathered in a reasonable amount of time. For the definition of a "reasonable time" let's say that is below one minute. This will give us the opportunity to get minute resolution metrics if needed. Then I would need to figure out a method of autodiscovering these hosts.
+
+If our infrastructure mainly in AWS I could use I would first see if AWS Lambda is a good fit for executing the script.
+
+This is where the pull methodology of my solution falls flat. It would be far more simple to distribute an agent to all these hosts that periodically pushes their metrics to their region's graphite load balancer.
+
+3. Am I making this easily scalable for more than 10,000 hosts?
+
+I'll go back to my previous statement about the pull vs push collection. I think by making this script an agent it would scale to N hosts rather easily. I would make the script a python package that could be easily installed via `pip`.
+
+### Duration
+
+This question took me approximately: 1 hour
+
+## Question 3
+
+I would use DataDog to monitor the `statsd` service on the graphite hosts and PagerDuty to send me alerts. I would create a monitor on DataDog for the `statsd` [service](https://docs.datadoghq.com/integrations/systemd/?tab=host#overview). I would check for `systemd.unit.active` on `statsd`. If ever gets in a not active state an alert will trigger and be forwarded to PagerDuty. I would also do a synthetic test by sending a gauge to a specific path in graphite every N minutes. I could then have another script that pulls that gauge and checks the last timestamp it was reported. If the gauge has not been reporting in for a predetermined amount of time it would trigger a PagerDuty alert. I would do this for every graphite host that has `statsd`.
+
+If I was not able to use DataDog or PagerDuty I would go with the tried and true bash script, cron, and email. I could also modernize things a bit by incorporating a webhook into Slack instead of just email.
+
+### Duration
+
+This question took me approximately: 30 minutes
+
+## Question 4
+
+The way I typically approach monitoring and alerting on oom killer events is first starting with what hosts are running out of memory. In the past I have setup Icinga2 to run its memory check scripts on remote hosts and report back the free memory %. If their memory usage is out side of normal bounds, I would be alerted and further investigation would take place.
+
+In my experience the easiest way to drill down on OOM killer issues is via system logs. Assuming I was permitted to use DataDog, I would use DataDog logs with a [log filter](https://www.datadoghq.com/blog/diagnosing-oom-errors-with-datadog/#collect-oom-logs-from-your-system) for oom killer events. If I wasn't able to use DataDog, I would put together `rsyslog` and a central syslog server. There I would have a bash script that would alert on oom killer events see in the logs.
+
+To further investigate I would identify the process/pid(s) that are consuming the most amount of memory. That is where this project's script would shine. There could be a few causes to general high memory usage. There might be load balancing issues, so I would check connections via `lsof` if it is apart of a backend cluster. It's also possible there is too much disk pressure and the scheduler cannot flush data in memory to disk fast enough. However, after investigating all of that the host may need to be vertically scaled with additional RAM.
+
+Once I have identified the process I would SSH to one of the 1% hosts. SSH connections and pttys usually take priority with oom killer, so I will most likely get on. If not I would have to unfortunately "turn it off and on again". I would look at the application or system level logs to see if there are any clues as to why the process is consuming more memory each hour.
+
+Since this issue is occurring every hour regularly it might be a garbage collection issue (java). If that's the case an immediate bandaid would be a cron job that restarts the java service every X minutes. Obviously this is a 3am patch solution, so we need to investigate the application more to find a proper solution.
+
+### Duration
+
+This question took me approximately: 1 hour

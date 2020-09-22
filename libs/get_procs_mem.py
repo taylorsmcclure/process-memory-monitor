@@ -2,10 +2,6 @@
 from multiprocessing import Pool
 from itertools import repeat
 import paramiko
-import time
-import pickle
-import struct
-import socket
 import statsd
 
 # color formatting for console messages
