@@ -127,3 +127,15 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+pyvenv.cfg
+bin/
+include/
+
+# terraform
+terraform.tfvars
+.terraform*
+terraform.tfstate*
+
+# keys
+*.pem
+*.pub
