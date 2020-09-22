@@ -23,4 +23,4 @@ RUN chmod 700 /root/.ssh && \
 EXPOSE 22
 
 # entrypoint
-CMD ["/usr/sbin/sshd", "-D"]
+CMD ["/usr/sbin/sshd", "-D" "-e"]

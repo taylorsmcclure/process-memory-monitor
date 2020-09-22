@@ -7,4 +7,4 @@ services:
     build: .
     ports:
         - "127.0.0.1:22:22"
-    command: /usr/sbin/sshd -D
+    command: /usr/sbin/sshd -D -e

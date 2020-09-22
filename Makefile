@@ -6,7 +6,6 @@ all:
 
 # Setup your dev environment and launch your docker compose cluster
 init: virtual_env gen_ssh_key
-	terraform init
 	@echo
 	@echo Python virtual env created. Use source bin/activate to start developing.
 
@@ -20,8 +19,8 @@ install_deps:
 	pip3 install -r requirements.txt
 
 clean_all: docker_compose_down
-	terraform destroy
-	rm -rf bin/ include/ lib/ .terraform/ terraform.tfstate* epic-interview.pem epic-interview.pub
+	terraform destroy; \
+	rm -rf bin/ include/ lib/ .terraform/ terraform.tfstate* epic-interview.pem epic-interview.pub metrics.log; \
 	docker rmi epic-memory-test:latest
 	@echo run deactivate to get our of your python venv
 
@@ -52,6 +51,9 @@ test: docker_compose_up
 	./tests/check_localhost_output.py
 
 remote_test:
+	terraform output
 	@read -p "Enter public IP for your remote instance(s):" instance_ip; \
-	./mem_collector.py -u ubuntu -k epic-interview.pem -i $$instance_ip -g localhost -o
+	read -p "Enter public IP for your graphite instance:" graphite_ip; \
+	./mem_collector.py -u ubuntu -k epic-interview.pem -i $$instance_ip -g $$graphite_ip -o
 	./tests/check_localhost_output.py
+	@echo Check your graphite web UI to ensure all hosts have their memory metrics present.
