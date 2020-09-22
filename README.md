@@ -1,8 +1,26 @@
 # epic-games-interview
 
-## Terraform
+## Table of Contents
+
+[Question 1](#question-1)
+    - [Approach](#approach)
+    - [Terraform](#terraform)
+    - [Assumptions](#assumptions)
+    - [Duration](#duration)
+    - [Prerequisites](#prerequisites)
+    - [How to test](#how-to-test)
+    - [Cleanup](#cleanup)
+    - [Nice to haves](#nice-to-haves)
 
 ## Question 1
+
+### Approach
+
+...
+
+### Terraform
+
+For my integration tests and development I chose to go with terraform to bring up my infrastructure in AWS. While it is not required for you to do this, it tests parallel processing time over remote networks pretty well.
 
 ### Assumptions
 
@@ -18,7 +36,7 @@
 
 * All Linux hosts have a user with the same public key. This user will need access to run `ps aux`.
 
-* "collect per process used memory". I am interrupting this as collecting virtual and resident memory for each process using `ps aux`. They metrics will be stored in the following convention `host.command.pid`.
+* "collect per process used memory". I am interpreting this as collecting virtual and resident memory for each process using `ps aux`. They metrics will be stored in the following convention `host.command.pid*`.
 
 * I will not need to provide any custom grafana views to show the metrics.
 
@@ -28,27 +46,42 @@
 
 * I am permitted to use a statsd client library. I used [this](https://github.com/jsocol/pystatsd).
 
-* I need to use a [fork of synthesize](https://github.com/taylorsmcclure/synthesize) from a previous interview candidate (haha). I also [increased some carbon metrics](https://github.com/taylorsmcclure/synthesize/commit/1f01414e58155dee59b40d8769c503a039fc1bf5) CRUDs per second and minute so no metrics drop.
-
 * I will not need to worry about a lifecycle policy for the data in graphite.
 
 * I am tracking memory using the command's name, then drilling down to a pid, which is then split to rss and vss.
 
 ### Duration
 
-This question took me approximately: 
+This question took me approximately: 8 hours
 
-### Prerequisites to test
+### Prerequisites
 
 * Docker with Docker Compose
 
 * Able to have the docker container listen on TCP 22 locally
 
+* (OPTIONAL) If you want to test remotely on AWS EC2, you will need IAM credentials that has full access to EC2 and VPC.
+  * You also need `terraform` v0.12 installed
+
 ### How to test
 
 **NOTE** You must have an AWS account and keypair with EC2 and VPC full access for this to work. You will also be spinning up AWS resources which will incure charges to your AWS account. You are responsible for any charges due to AWS resources running in your account. To make sure everything is cleaned up use `terraform destroy`.
 
-1. Use `make deploy` to create your test infrastructure. This will launch...
+1. Use `make init` to generate your python virtual environment as well as a private key to use for testing.
+
+2. Activate your virtual environment via `source bin/activate`
+
+3. Install the python package dependencies with `make install_deps`
+
+4. Build and run a docker container to test metric gathering/processing with `make test`
+
+5. (OPTIONAL) Deploy terraform for a remote test using `make deploy`. You will need to wait approximately 5min for the graphite install to be finished. You can check if it is done by going to the graphite url output with `terraform output`
+
+6. (OPTIONAL) Run `make remote_test` to test on your EC2 instances and graphite.
+
+### Cleanup
+
+To clean up run `make clean_all`. Then `deactivate` to leave your python virtual env.
 
 ### Nice to haves
 
@@ -63,3 +96,7 @@ This question took me approximately:
 * CI/CD system to test the python script. I have never used [Tox](https://tox.readthedocs.io/en/latest/), but that looks like a good way to go.
 
 * Use an SSH port rather than TCP 22. This would be easy to implement, but I did not for the sake of time.
+
+* Prebake an EC2 AMI with synthesize stack, so it doesn't take so long to bootstrap
+
+## Question 2
