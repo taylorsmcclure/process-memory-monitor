@@ -143,6 +143,8 @@ To clean up, run `make clean_all`. Then `deactivate` to leave your Python virtua
 
 * Prebake an EC2 AMI with synthesize stack, so it doesn't take so long to bootstrap
 
+* More user input validation for more descriptive errors
+
 ## Question 2
 
 > Given the same scenario in question 1, what would you change or consider if you needed to run this across 10,000 hosts across multiple regions?  Please describe this in detail including how you would architect and scale metrics collection and services.
