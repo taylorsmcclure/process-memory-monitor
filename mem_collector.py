@@ -18,13 +18,14 @@ args = parser.parse_args()
 # translate user input to python list
 parsed_hostnames = [x for x in args.hostnames.split(',')]
 
-if args.single_thread:
-    if args.output:
-        get_procs_mem.MemCollector(output=True).get_mem_metrics_single(parsed_hostnames, args.p_key, args.user, args.graphite_host)
+if __name__ == '__main__':
+    if args.single_thread:
+        if args.output:
+            get_procs_mem.MemCollector(output=True).get_mem_metrics_single(parsed_hostnames, args.p_key, args.user, args.graphite_host)
+        else:
+            get_procs_mem.MemCollector().get_mem_metrics_single(parsed_hostnames, args.p_key, args.user, args.graphite_host)
     else:
-        get_procs_mem.MemCollector().get_mem_metrics_single(parsed_hostnames, args.p_key, args.user, args.graphite_host)
-else:
-    if args.output:
-        get_procs_mem.MemCollector(output=True).get_mem_metrics_multi(parsed_hostnames, args.p_key, args.user, args.graphite_host)
-    else:
-        get_procs_mem.MemCollector().get_mem_metrics_multi(parsed_hostnames, args.p_key, args.user, args.graphite_host)
+        if args.output:
+            get_procs_mem.MemCollector(output=True).get_mem_metrics_multi(parsed_hostnames, args.p_key, args.user, args.graphite_host)
+        else:
+            get_procs_mem.MemCollector().get_mem_metrics_multi(parsed_hostnames, args.p_key, args.user, args.graphite_host)
