@@ -18,6 +18,8 @@
 
 ## Question 1
 
+> Write a script in bash, ruby, python or golang that in parallel would collect per process used memory across 50 linux hosts.  The collected information should be output to a suitable metrics back-end via statsd(TICK, prometheus, statsite)  If you are not sure what this is, then please use https://github.com/obfuscurity/synthesize. Please do not use an agent such as telegraf or collectd.  We would like to see how you would code this :)
+
 ### Approach
 
 Firstly, thank you all for the opportunity to interview with Epic Games. I love challenges and this project exposed me to a tech stack I have never worked with. Regardless of the outcome of my interview, I am glad to have the experience that came from this project.
@@ -30,13 +32,13 @@ The execution workflow looks like this:
 
 1. User input is collected via `argparse`
 2. A class `MemCollector()` is initialized with `get_mem_metrics_multi()` function
-3. `get_mem_metrics_multi()` creates a pool of 8 workers and simultaneously executes the following
-4. Using `paramiko` it connects to N number remote hosts via SSH to execute a `ps aux` command
-5. The results are then sent to `send_to_statsd()` which parses and structures them further
-6. It uses the `statsd.StatsClient().pipeline()` function to build a payload of multiple gauge metrics to cut down on network overhead
-7. It is sent to `statsd` on UDP 8125 to the host you specify on step 1
+3. `get_mem_metrics_multi()` creates a pool of 8 workers and simultaneously executes the following:
+    1. Using `paramiko` it connects to N number remote hosts via SSH to execute a `ps aux` command
+    2. The results are then sent to `send_to_statsd()` which parses and structures them further
+    3. It uses the `statsd.StatsClient().pipeline()` function to build a payload of multiple gauge metrics to cut down on network overhead
+    4. It is sent to `statsd` on UDP 8125 to the host you specify on step 1
 
-I arrived at this solution, because I did not want the complexity of deploying agents on hosts and have them periodically send metrics. This one script can aggregate all the process memory usage and send it to statsd/graphite easily.
+I arrived at this solution because I did not want the added overhead of deploying agents on hosts. This one script can aggregate all the process memory usage and send it to statsd/graphite easily.
 
 ### Usage Example
 
@@ -66,11 +68,11 @@ For my integration tests and development workflow I chose to go with terraform t
 
 ### Assumptions
 
-* Each host we are collecting memory from are running Ubuntu 18.04 LTS. If this was going through a production readiness checklist, I would take inventory of all the hosts it will be deployed to, then create an end-to-end test running the collection script against them.
+* Each host we are collecting memory from is running Ubuntu 18.04 LTS. If this was going through a production readiness checklist, I would take inventory of all the hosts it will be deployed to, then create an end-to-end test running the collection script against them.
 
 * The statsd collector will need to listen on udp 8125 and sync its data to graphite periodically. I used the [suggested stack](https://github.com/taylorsmcclure/synthesize) with some minor tweaks on my fork.
 
-* For the user to test the script the need an AWS account and IAM credentials that have EC2 and VPC access.
+* For the user to test the script they need an AWS account and IAM credentials that have EC2 and VPC access.
 
 * The user running the script is on OS X. I did not test this with Windows 10. The Makefile and bash scripts may not work.
 
@@ -78,9 +80,9 @@ For my integration tests and development workflow I chose to go with terraform t
 
 * All Linux hosts have a user with the same public key. This user will need access to run `ps aux`.
 
-* "collect per process used memory". I am interpreting this as collecting virtual and resident memory for each process using `ps aux`. They metrics will be stored in the following convention `host.command.pid*`.
+* "collect per process used memory". I am interpreting this as collecting virtual and resident memory for each process using `ps aux`. The metrics will be stored in the following convention `host.command.pid*`.
 
-* I will not need to provide any custom grafana views to show the metrics.
+* I will not need to provide any custom Grafana views to show the metrics.
 
 * SSH connection (auth, wait) and remote exec timeouts are all set to 5 seconds. The script will continue collecting data on subsequent hosts.
 
@@ -109,39 +111,41 @@ This question took me approximately: 8 hours
 
 **NOTE** You must have an AWS account and keypair with EC2 and VPC full access for this to work. You will also be spinning up AWS resources which will incur charges to your AWS account. You are responsible for any charges due to AWS resources running in your account. To make sure everything is cleaned up use `terraform destroy`.
 
-1. Use `make init` to generate your python virtual environment as well as a private key to use for testing.
+1. Use `make init` to generate your Python virtual environment as well as a private key to use for testing.
 
 2. Activate your virtual environment via `source bin/activate`
 
-3. Install the python package dependencies with `make install_deps`
+3. Install the Python package dependencies with `make install_deps`
 
 4. Build and run a docker container to test metric gathering/processing with `make test`
 
-5. (OPTIONAL) Deploy terraform for a remote test using `make deploy`. You will need to wait approximately 5min for the graphite install to be finished. You can check if it is done by going to the graphite url output with `terraform output`
+5. (OPTIONAL) Deploy terraform for a remote test using `make deploy`. You will need to wait approximately 5 min for the graphite install to be finished. You can check if it is done by going to the graphite url output with `terraform output`
 
 6. (OPTIONAL) Run `make remote_test` to test on your EC2 instances and graphite.
 
 ### Cleanup
 
-To clean up, run `make clean_all`. Then `deactivate` to leave your python virtual env.
+To clean up, run `make clean_all`. Then `deactivate` to leave your Python virtual env.
 
 ### Nice to haves
 
-* Better documented code. Python in most cases is pretty straightforward to read, but it would have been nice to document the code better and describe classes, functions, and returns better.
+* Better documented code. Python in most cases is pretty straightforward to read, but it would have been nice to better document the code, and describe classes, functions, and returns.
 
-* Better logging with timestamps and more accurate exceptions.
+* Improved logging with timestamps and more accurate exceptions.
 
 * Better unit tests in place with mock data. All of my tests were integration.
 
 * CI/CD system to deploy terraform. I would use GitHub actions + [Atlantis](https://www.runatlantis.io/) to achieve this.
 
-* CI/CD system to test the python script. I have never used [Tox](https://tox.readthedocs.io/en/latest/), but that looks like a good way to go.
+* CI/CD system to test the Python script. I have never used [Tox](https://tox.readthedocs.io/en/latest/), but that looks like a good way to go.
 
 * Give the choice to use a SSH port rather than TCP 22. This would be easy to implement, but I did not for the sake of time.
 
 * Prebake an EC2 AMI with synthesize stack, so it doesn't take so long to bootstrap
 
 ## Question 2
+
+> Given the same scenario in question 1, what would you change or consider if you needed to run this across 10,000 hosts across multiple regions?  Please describe this in detail including how you would architect and scale metrics collection and services.
 
 If I had to run this multi-region and scaled to 10,000 hosts I would ask myself the following:
 
@@ -153,12 +157,12 @@ From what I have [read](https://allegro.tech/2015/09/scaling-graphite.html) putt
 
 I would need to run some benchmarks on my script to see how many hosts/metrics can be gathered in a reasonable amount of time. For the definition of a "reasonable time" let's say that is below one minute. This will give us the opportunity to get minute resolution metrics if needed. Then I would need to figure out a method of autodiscovering these hosts.
 
-If our infrastructure mainly in AWS I could use I would first see if AWS Lambda is a good fit for executing the script.
-This is where the pull methodology of my solution falls flat. It would be far more simple to distribute an agent to all these hosts that periodically pushes their metrics to their region's graphite load balancer.
+If our infrastructure is mainly in AWS I would first see if AWS Lambda is a good fit for executing the script.
+This is where the pull methodology of my solution falls flat. At this scale it would be easier to distribute an agent to all the hosts. The agent would periodically push their metrics to their region's graphite load balancer.
 
 ### Am I making this easily scalable for more than 10,000 hosts?
 
-I'll go back to my previous statement about the pull vs push collection. I think by making this script an agent it would scale to N hosts rather easily. I would make the script a python package that could be easily installed via `pip`.
+I'll go back to my previous statement about the pull vs push collection. I think by making this script an agent it would scale to N hosts rather easily. I would make the script a Python package that could be easily installed via `pip`.
 
 ### Duration
 
@@ -166,7 +170,9 @@ This question took me approximately: 1 hour
 
 ## Question 3
 
-I would use DataDog to monitor the `statsd` service on the graphite hosts and PagerDuty to send me alerts. I would create a monitor on DataDog for the `statsd` [service](https://docs.datadoghq.com/integrations/systemd/?tab=host#overview). I would check for `systemd.unit.active` on `statsd`. If ever gets in a not active state an alert will trigger and be forwarded to PagerDuty. I would also do a synthetic test by sending a gauge to a specific path in graphite every N minutes. I could then have another script that pulls that gauge and checks the last timestamp it was reported. If the gauge has not been reporting in for a predetermined amount of time it would trigger a PagerDuty alert. I would do this for every graphite host that has `statsd`.
+> Given the same scenario from question 2,  how do you know the statsd service is working correctly?  What monitoring or metrics would you put in place if this was a production service?  Please talk about specific architectures and systems you would use for this monitoring tool.  Gotchas are an a+.
+
+I would use DataDog to monitor the `statsd` service on the graphite hosts and PagerDuty to send me alerts. I would create a monitor on DataDog for the `statsd` [service](https://docs.datadoghq.com/integrations/systemd/?tab=host#overview). I would check for `systemd.unit.active` on `statsd`. If it ever gets in a failed state, an alert will trigger and be forwarded to PagerDuty. I would also do a synthetic test by sending a gauge to a specific path in Graphite every N minutes. I could then have another script that pulls that gauge and checks the last timestamp it was reported. If the gauge has not reported for a predetermined amount of time it would trigger a PagerDuty alert. I would do this for every Graphite host that has `statsd`.
 
 If I was not able to use DataDog or PagerDuty I would go with the tried and true bash script, cron, and email. I could also modernize things a bit by incorporating a webhook into Slack instead of just email.
 
@@ -176,15 +182,17 @@ This question took me approximately: 30 minutes
 
 ## Question 4
 
-The way I typically approach monitoring and alerting on oom killer events is first starting with what hosts are running out of memory. In the past I have set up Icinga2 to run its memory check scripts on remote hosts and report back the free memory %. If their memory usage is outside of normal bounds, I would be alerted and further investigation would take place.
+> If 1% of hosts(out of 10k total) were kernel OOMing every hour(with linux OOMkiller kicking in), what action would you take to auto remediate? How would you discover and monitor that the hosts were in fact running out of memory?
 
-In my experience the easiest way to drill down on OOM killer issues is via system logs. Assuming I was permitted to use DataDog, I would use DataDog logs with a [log filter](https://www.datadoghq.com/blog/diagnosing-oom-errors-with-datadog/#collect-oom-logs-from-your-system) for oom killer events. If I wasn't able to use DataDog, I would put together `rsyslog` and a central syslog server. There I would have a bash script that would alert on oom killer events see in the logs.
+The way I typically approach monitoring and alerting on OOM killer events is first starting with what hosts are running out of memory. In the past I have set up Icinga2 to run its memory check scripts on remote hosts and report back the free memory %. If their memory usage is outside of normal bounds, I would be alerted and further investigation would take place.
 
-To further investigate I would identify the process/pid(s) that are consuming the most amount of memory. That is where this project's script would shine. There could be a few causes to general high memory usage. There might be load balancing issues, so I would check connections via `lsof` if it is a part of a backend cluster. It's also possible there is too much disk pressure and the scheduler cannot flush data in memory to disk fast enough. However, after investigating all of that the host may need to be vertically scaled with additional RAM.
+In my experience the easiest way to drill down on OOM killer issues is via system logs. Assuming I was permitted to use DataDog, I would use DataDog logs with a [log filter](https://www.datadoghq.com/blog/diagnosing-oom-errors-with-datadog/#collect-oom-logs-from-your-system) for oom killer events. If I wasn't able to use DataDog, I would put together `rsyslog` and a central syslog server. There, I would have a bash script that would alert on OOM killer events seen in the logs.
 
-Once I have identified the process I would SSH to one of the 1% hosts. SSH connections and pttys usually take priority with oom killer, so I will most likely get on. If not I would have to unfortunately "turn it off and on again". I would look at the application or system level logs to see if there are any clues as to why the process is consuming more memory each hour.
+To further investigate I would identify the process/pid(s) that are consuming the most amount of memory. That is where this project's script would shine. There could be a few causes to general high memory usage. There might be load balancing issues, so I would check connections via `netstat` if it is a part of a backend cluster. It's also possible there is too much disk pressure and the scheduler cannot flush data in memory to disk fast enough. However, after investigating all of that, the host may need to be vertically scaled with additional RAM.
 
-Since this issue is occurring every hour regularly it might be a garbage collection issue (java). If that's the case an immediate band aid would be a cron job that restarts the java service every X minutes. Obviously this is a 3am patch solution, so we need to investigate the application more to find a proper solution.
+Once I have identified the process, I would SSH to one of the 1% hosts. SSH connections and pttys usually take priority with OOM killer, so I will most likely get in. If not, I would have to unfortunately "turn it off and on again". I would look at the application or system level logs to see if there are any clues as to why the process is consuming more memory each hour.
+
+Since this issue is occurring every hour regularly, it might be a garbage collection issue (Java). If that's the case, an immediate band aid would be a cron job that restarts the Java service every X minutes. Obviously, this is a 3am patch solution, so we need to investigate the application more to find a proper solution.
 
 ### Duration
 
