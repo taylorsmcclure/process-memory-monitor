@@ -26,13 +26,13 @@ Firstly, thank you all for the opportunity to interview with Epic Games. I love 
 
 To solve this problem I used Python 3. Since I wanted a script that pulled metrics (rather than an agent that pushes), I went with executing `ps aux` over SSH to give me the memory stats. I used the [paramiko](http://www.paramiko.org/) package to easily connect/execute commands remotely via Python. I also used python [statsd](https://github.com/jsocol/pystatsd) module as a client wrapper for interacting with statsd.
 
-To satisfy the parallel processing requirement of this assessment I went with Python 3's built-in `multiprocessing`. I used the `starmap()` function on 8 pooled workers for most of the script's functions.
+To satisfy the parallel processing requirement of this assessment I went with Python 3's built-in `multiprocessing`. I used the `starmap()` function on all available vCPUs for most of the script's functions.
 
 The execution workflow looks like this:
 
 1. User input is collected via `argparse`
 2. A class `MemCollector()` is initialized with `get_mem_metrics_multi()` function
-3. `get_mem_metrics_multi()` creates a pool of 8 workers and simultaneously executes the following:
+3. `get_mem_metrics_multi()` creates a pool of workers and simultaneously executes the following:
     1. Using `paramiko` it connects to N number remote hosts via SSH to execute a `ps aux` command
     2. The results are then sent to `send_to_statsd()` which parses and structures them further
     3. It uses the `statsd.StatsClient().pipeline()` function to build a payload of multiple gauge metrics to cut down on network overhead

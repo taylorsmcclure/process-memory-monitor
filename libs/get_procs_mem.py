@@ -19,14 +19,13 @@ class bcolors:
 class MemCollector ():
     def __init__(self, output=False):
         self.output = output
-        pass
 
     def get_mem_metrics_single(self, hostnames, key_file, user, graphite_host):
         for h in hostnames:
             self.get_mem_metrics(h, key_file, user, graphite_host)
 
     def get_mem_metrics_multi(self, hostnames, key_file, user, graphite_host):
-        with Pool(8) as p:
+        with Pool() as p:
             p.starmap(self.get_mem_metrics, list(zip(hostnames, repeat(key_file), repeat(user), repeat(graphite_host))))
 
     def send_to_statsd(self, graphite_host, results, host):
