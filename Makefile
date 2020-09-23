@@ -21,6 +21,7 @@ install_deps:
 clean_all: docker_compose_down
 	terraform destroy; \
 	rm -rf bin/ include/ lib/ .terraform/ terraform.tfstate* epic-interview.pem epic-interview.pub metrics.log; \
+	docker rm epic-memory-test; \
 	docker rmi epic-memory-test:latest
 	@echo run deactivate to get our of your python venv
 
